@@ -1,8 +1,9 @@
 const ErrorHandler = require('../utils/errorhandler');
 const catchAsyncErrors = require('../middleware/catchAsyncErrors');
 const User = require('../models/userModal');
-const sendToken = require('../utils/jwtToken');
-const sendEmail = require('../utils/sendEmail')
+const { sendToken } = require('../utils/jwtToken');
+const { sendEmail } = require('../utils/sendEmail');
+const crypto = require('crypto')
 
 // register a user
 exports.registerUser = catchAsyncErrors(async (req, res, next) => {
@@ -48,8 +49,8 @@ exports.logoutUser = catchAsyncErrors(async (req, res, next) => {
 })
 
 // forget password
-exports.logoutUser = catchAsyncErrors(async (req, res, next) => {
-    const user = await User({ email: req.body.email });
+exports.forgotPassword = catchAsyncErrors(async (req, res, next) => {
+    const user = await User.findOne({ email: req.body.email });
     if (!user) {
         return next(new ErrorHandler('User not found', 404))
     }
@@ -74,4 +75,25 @@ exports.logoutUser = catchAsyncErrors(async (req, res, next) => {
         await user.save();
         return next(new ErrorHandler(error.message, 500));
     }
+})
+
+
+
+exports.resetPassword = catchAsyncErrors(async (req, res, next) => {
+    const resetPasswordToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
+    const user = await User.findOne({ resetPasswordToken, resetPasswordExpire: { $gt: Date.now() } });
+    if (!user) {
+        return next(new ErrorHandler('Reset password token is invalid or has been expired', 400));
+    }
+    if (req.body.password !== req.body.confirmPassword) {
+        return next(new ErrorHandler('Password and Confirm Password are mismatched'))
+    }
+
+    console.log(user);
+
+    user.password = req.body.password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+    sendToken(user, 200, res);
 })
