@@ -3,7 +3,8 @@ const catchAsyncErrors = require('../middleware/catchAsyncErrors');
 const User = require('../models/userModal');
 const { sendToken } = require('../utils/jwtToken');
 const { sendEmail } = require('../utils/sendEmail');
-const crypto = require('crypto')
+const crypto = require('crypto');
+const ApiFeatures = require('../utils/apifeatures');
 
 // register a user
 exports.registerUser = catchAsyncErrors(async (req, res, next) => {
@@ -27,7 +28,7 @@ exports.loginUser = catchAsyncErrors(async (req, res, next) => {
         return next(new ErrorHandler('Email or Password is Incorrect', 401));
     }
 
-    isPasswordMatched = user.comparePassword(password);
+    isPasswordMatched = await user.comparePassword(password);
 
     if (!isPasswordMatched) {
         return next(new ErrorHandler('Email or Password is Incorrect', 401));
@@ -86,7 +87,7 @@ exports.resetPassword = catchAsyncErrors(async (req, res, next) => {
         return next(new ErrorHandler('Reset password token is invalid or has been expired', 400));
     }
     if (req.body.password !== req.body.confirmPassword) {
-        return next(new ErrorHandler('Password and Confirm Password are mismatched'))
+        return next(new ErrorHandler('Password and Confirm Password are mismatched', 400))
     }
 
     console.log(user);
@@ -97,3 +98,105 @@ exports.resetPassword = catchAsyncErrors(async (req, res, next) => {
     await user.save();
     sendToken(user, 200, res);
 })
+
+// Get User Details
+exports.getUserDetails = catchAsyncErrors(async (req, res, next) => {
+    const user = await User.findById(req.user.id);
+    res.status(200).json({
+        success: true,
+        user,
+    })
+})
+
+// Update User Password
+exports.updatePassword = catchAsyncErrors(async (req, res, next) => {
+    const user = await User.findById(req.user.id).select('+password');
+    const isPasswordMatched = await user.comparePassword(req.body.oldPassword);
+    if (!isPasswordMatched) {
+        return next(new ErrorHandler('Old Password is incorrect', 400));
+    }
+    if (req.body.newPassword != req.body.confirmPassword) {
+        return next(new ErrorHandler('New Password and Old Password Mismatched', 400));
+    }
+
+    user.password = req.body.newPassword;
+
+    await user.save();
+
+    sendToken(user, 200, res);
+
+})
+
+
+
+exports.updateProfile = catchAsyncErrors(async (req, res, next) => {
+    const newUserData = {
+        name: req.body.name,
+        email: req.body.email,
+    }
+    console.log('HI');
+    // we will add cloudinary later
+    const user = await User.findByIdAndUpdate(req.user.id, newUserData);
+
+    res.status(200).json({
+        success: true,
+        message: 'Data updated successfully'
+    })
+})
+
+// Get all users -- admin
+exports.getAllUsers = catchAsyncErrors(async (req, res, next) => {
+    const apifeature = new ApiFeatures(User, req.query).search().filter().pagination(5);
+    const users = await apifeature.query;
+    return res.json({
+        success: true,
+        users,
+    })
+})
+
+// Get single user detail -- admin
+exports.getUser = catchAsyncErrors(async (req, res, next) => {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+        return next(new ErrorHandler('User does not exist', 400));
+    }
+    return res.status(200).json({
+        success: true,
+        user,
+    })
+})
+
+// Update user role -- admin
+
+exports.updateUser = catchAsyncErrors(async (req, res, next) => {
+    const newUserData = {
+        name: req.body.name,
+        email: req.body.email,
+        role: req.body.role
+    }
+    const user = await User.findByIdAndUpdate(req.params.id, newUserData);
+    if (!user) {
+        return next(new ErrorHandler(`User does not exist with Id : ${req.params.id}`))
+    }
+    res.status(200).json({
+        success: true,
+        message: 'Data updated successfully'
+    })
+})
+
+// Delete User -- admin
+exports.deleteUser = catchAsyncErrors(async (req, res, next) => {
+    // we will remove cloudinary later
+
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) {
+        return next(new ErrorHandler(`User does not exist with Id : ${req.params.id}`))
+    }
+
+    res.status(200).json({
+        success: true,
+        message: 'User deleted successfully'
+    })
+})
+
+
