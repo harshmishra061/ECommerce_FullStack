@@ -15,6 +15,7 @@ exports.registerUser = catchAsyncErrors(async (req, res, next) => {
             url: "sample public url"
         }
     });
+    console.log(user);
     sendToken(user, 201, res);
 
 })
