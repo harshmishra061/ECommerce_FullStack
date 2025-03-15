@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node backend/server.js",
-    "dev": "nodemon backend/server.js"
+    "dev": "concurrently \"nodemon backend/server.js\" \"cd frontend && npm start\""
   },
   "repository": {
     "type": "git",
@@ -30,5 +30,8 @@
     "nodemailer": "^6.9.15",
     "nodemon": "^3.1.7",
     "validator": "^13.12.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   }
 }
